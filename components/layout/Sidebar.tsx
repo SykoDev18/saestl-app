@@ -15,6 +15,8 @@ import {
   Settings,
   ChevronDown,
   User,
+  Shield,
+  Users,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -62,6 +64,14 @@ const navItems = [
     title: 'Mi Perfil',
     href: '/profile',
     icon: User,
+  },
+  {
+    title: 'Administración',
+    href: '/settings/users',
+    icon: Shield,
+    children: [
+      { title: 'Usuarios', href: '/settings/users' },
+    ],
   },
   {
     title: 'Configuración',
