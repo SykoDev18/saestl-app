@@ -1,0 +1,145 @@
+graph TB
+    subgraph Actores
+        Admin[Administrador]
+        Tesorero[Tesorero]
+        Directiva[Directiva]
+        Visualizador[Visualizador]
+    end
+
+    subgraph "Gestión de Transacciones"
+        UC1[Registrar Ingreso]
+        UC2[Registrar Egreso]
+        UC3[Ver Transacciones]
+        UC4[Aprobar/Rechazar Transacción]
+        UC5[Exportar Transacciones]
+        UC6[Adjuntar Comprobante]
+    end
+
+    subgraph "Gestión de Rifas"
+        UC7[Crear Rifa]
+        UC8[Registrar Venta de Boleto]
+        UC9[Ver Boletos Vendidos]
+        UC10[Realizar Sorteo]
+        UC11[Registrar Ganador]
+    end
+
+    subgraph "Gestión de Eventos"
+        UC12[Crear Evento]
+        UC13[Registrar Participante]
+        UC14[Ver Lista de Registrados]
+        UC15[Exportar Lista de Participantes]
+        UC16[Marcar Asistencia]
+        UC17[Gestionar Pagos de Entradas]
+    end
+
+    subgraph "Presupuestos"
+        UC18[Crear Presupuesto]
+        UC19[Ver Comparativa Presupuesto]
+        UC20[Recibir Alertas de Presupuesto]
+    end
+
+    subgraph "Reportes e Informes"
+        UC21[Generar Informe Mensual]
+        UC22[Ver Dashboard]
+        UC23[Ver Gráficas Financieras]
+        UC24[Exportar a Excel/CSV]
+        UC25[Consultar Historial]
+    end
+
+    subgraph "Cuentas por Cobrar/Pagar"
+        UC26[Registrar Cuenta por Pagar]
+        UC27[Registrar Cuenta por Cobrar]
+        UC28[Ver Cuentas Pendientes]
+        UC29[Marcar como Pagado/Cobrado]
+    end
+
+    subgraph "Administración"
+        UC30[Gestionar Usuarios]
+        UC31[Asignar Roles]
+        UC32[Ver Registro de Auditoría]
+        UC33[Configurar Categorías]
+    end
+
+    Admin --> UC1
+    Admin --> UC2
+    Admin --> UC3
+    Admin --> UC4
+    Admin --> UC5
+    Admin --> UC6
+    Admin --> UC7
+    Admin --> UC8
+    Admin --> UC9
+    Admin --> UC10
+    Admin --> UC11
+    Admin --> UC12
+    Admin --> UC13
+    Admin --> UC14
+    Admin --> UC15
+    Admin --> UC16
+    Admin --> UC17
+    Admin --> UC18
+    Admin --> UC19
+    Admin --> UC20
+    Admin --> UC21
+    Admin --> UC22
+    Admin --> UC23
+    Admin --> UC24
+    Admin --> UC25
+    Admin --> UC26
+    Admin --> UC27
+    Admin --> UC28
+    Admin --> UC29
+    Admin --> UC30
+    Admin --> UC31
+    Admin --> UC32
+    Admin --> UC33
+
+    Tesorero --> UC1
+    Tesorero --> UC2
+    Tesorero --> UC3
+    Tesorero --> UC4
+    Tesorero --> UC5
+    Tesorero --> UC6
+    Tesorero --> UC7
+    Tesorero --> UC8
+    Tesorero --> UC9
+    Tesorero --> UC10
+    Tesorero --> UC11
+    Tesorero --> UC12
+    Tesorero --> UC13
+    Tesorero --> UC14
+    Tesorero --> UC15
+    Tesorero --> UC16
+    Tesorero --> UC17
+    Tesorero --> UC18
+    Tesorero --> UC19
+    Tesorero --> UC20
+    Tesorero --> UC21
+    Tesorero --> UC22
+    Tesorero --> UC23
+    Tesorero --> UC24
+    Tesorero --> UC25
+    Tesorero --> UC26
+    Tesorero --> UC27
+    Tesorero --> UC28
+    Tesorero --> UC29
+
+    Directiva --> UC3
+    Directiva --> UC4
+    Directiva --> UC8
+    Directiva --> UC9
+    Directiva --> UC13
+    Directiva --> UC14
+    Directiva --> UC16
+    Directiva --> UC19
+    Directiva --> UC22
+    Directiva --> UC23
+    Directiva --> UC25
+    Directiva --> UC28
+
+    Visualizador --> UC3
+    Visualizador --> UC9
+    Visualizador --> UC14
+    Visualizador --> UC22
+    Visualizador --> UC23
+    Visualizador --> UC25
