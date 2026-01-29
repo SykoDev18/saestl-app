@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { AppError, formatErrorResponse, ErrorCodes } from '@/lib/error-handler'
+import type { Budget } from '@/types/database.types'
 
 // GET - List all budgets
 export async function GET(request: NextRequest) {
@@ -30,9 +31,11 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error
 
+    const budgets = (data || []) as Budget[]
+
     // Calculate spent amount for each budget
-    const budgetsWithSpent = await Promise.all((data || []).map(async (budget) => {
-      const { data: transactions } = await supabase
+    const budgetsWithSpent = await Promise.all(budgets.map(async (budget) => {
+      const { data: transactionsData } = await supabase
         .from('transactions')
         .select('amount')
         .eq('category_id', budget.category_id)
@@ -41,7 +44,8 @@ export async function GET(request: NextRequest) {
         .gte('date', budget.period_start)
         .lte('date', budget.period_end)
 
-      const spent = transactions?.reduce((sum, t) => sum + Number(t.amount), 0) || 0
+      const transactions = (transactionsData || []) as { amount: number }[]
+      const spent = transactions.reduce((sum, t) => sum + Number(t.amount), 0)
       
       return {
         ...budget,
@@ -96,7 +100,7 @@ export async function POST(request: NextRequest) {
         period_end,
         created_by,
         description: body.description,
-      })
+      } as never)
       .select('*, categories(id, name, color)')
       .single()
 
@@ -125,7 +129,7 @@ export async function PATCH(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('budgets')
-      .update(updates)
+      .update(updates as never)
       .eq('id', id)
       .select('*, categories(id, name, color)')
       .single()
