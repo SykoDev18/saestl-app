@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
 // POST - Create a new event
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await getSupabaseClient()
+    const supabase = await createUntypedClient()
     const body = await request.json()
 
     const { name, event_date, created_by } = body
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
 // PATCH - Update an event
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = await getSupabaseClient()
+    const supabase = await createUntypedClient()
     const body = await request.json()
     const { id, ...updates } = body
 
@@ -142,7 +142,7 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Delete an event
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await getSupabaseClient()
+    const supabase = await createUntypedClient()
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
