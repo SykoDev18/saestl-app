@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createUntypedClient } from '@/lib/supabase/server'
 import { AppError, formatErrorResponse, ErrorCodes } from '@/lib/error-handler'
+import type { Event } from '@/types/database.types'
 
 // GET - List all events
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = await createUntypedClient()
     const { searchParams } = new URL(request.url)
     
     const status = searchParams.get('status')
@@ -30,19 +31,20 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error
 
+    const events = (data || []) as Event[]
     // Get registration counts
-    const eventIds = data?.map(e => e.id) || []
+    const eventIds = events.map(e => e.id)
     const { data: regCounts } = await supabase
       .from('event_registrations')
       .select('event_id')
       .in('event_id', eventIds)
 
-    const regCountMap = (regCounts || []).reduce((acc, r) => {
+    const regCountMap = (regCounts || []).reduce((acc: Record<string, number>, r: { event_id: string }) => {
       acc[r.event_id] = (acc[r.event_id] || 0) + 1
       return acc
     }, {} as Record<string, number>)
 
-    const eventsWithRegs = data?.map(e => ({
+    const eventsWithRegs = events.map(e => ({
       ...e,
       registration_count: regCountMap[e.id] || 0,
     }))
@@ -69,7 +71,7 @@ export async function GET(request: NextRequest) {
 // POST - Create a new event
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = await getSupabaseClient()
     const body = await request.json()
 
     const { name, event_date, created_by } = body
@@ -110,7 +112,7 @@ export async function POST(request: NextRequest) {
 // PATCH - Update an event
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = await getSupabaseClient()
     const body = await request.json()
     const { id, ...updates } = body
 
@@ -140,7 +142,7 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Delete an event
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = await getSupabaseClient()
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createUntypedClient } from '@/lib/supabase/server'
 import { AppError, formatErrorResponse, ErrorCodes } from '@/lib/error-handler'
 import type { Event, EventRegistration } from '@/types/database.types'
 
@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient()
+    const supabase = await createUntypedClient()
     const { id } = await params
 
     // Get event
@@ -19,7 +19,7 @@ export async function GET(
       .eq('id', id)
       .single()
 
-    if (eventError) throw new AppError('Evento no encontrado', ErrorCodes.DB_NOT_FOUND, 404)
+    if (eventError || !eventData) throw new AppError('Evento no encontrado', ErrorCodes.DB_NOT_FOUND, 404)
 
     const event = eventData as Event
 
@@ -66,7 +66,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient()
+    const supabase = await createUntypedClient()
     const { id } = await params
     const body = await request.json()
 
@@ -77,7 +77,7 @@ export async function POST(
       .eq('id', id)
       .single()
 
-    if (eventError) throw new AppError('Evento no encontrado', ErrorCodes.DB_NOT_FOUND, 404)
+    if (eventError || !eventData) throw new AppError('Evento no encontrado', ErrorCodes.DB_NOT_FOUND, 404)
     
     const event = eventData as Event
     
@@ -111,7 +111,7 @@ export async function POST(
         payment_status: body.payment_status || 'pending',
         attendance_status: 'registered',
         notes: body.notes,
-      } as never)
+      })
       .select()
       .single()
 
@@ -133,7 +133,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient()
+    const supabase = await createUntypedClient()
     const body = await request.json()
     const { registration_id, ...updates } = body
 
@@ -143,7 +143,7 @@ export async function PATCH(
 
     const { data, error } = await supabase
       .from('event_registrations')
-      .update(updates as never)
+      .update(updates)
       .eq('id', registration_id)
       .select()
       .single()

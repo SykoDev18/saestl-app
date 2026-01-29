@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createUntypedClient } from '@/lib/supabase/server'
 import { AppError, formatErrorResponse, ErrorCodes } from '@/lib/error-handler'
-import type { Database, Transaction } from '@/types/database.types'
+import type { Transaction } from '@/types/database.types'
 
 type TransactionWithCategory = Transaction & {
   categories?: { name: string; color: string | null } | null
@@ -10,7 +10,7 @@ type TransactionWithCategory = Transaction & {
 // GET - Get monthly report or generate one
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = await createUntypedClient()
     const { searchParams } = new URL(request.url)
     
     const month = parseInt(searchParams.get('month') || new Date().getMonth().toString()) + 1
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
 // POST - Save monthly report
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = await createUntypedClient()
     const body = await request.json()
 
     const { month, year, total_income, total_expense, balance, report_data, generated_by } = body
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
         report_data,
         generated_by,
         generated_at: new Date().toISOString(),
-      } as never, {
+      }, {
         onConflict: 'month,year',
       })
       .select()
