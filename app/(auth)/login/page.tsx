@@ -24,7 +24,6 @@ export default function LoginPage() {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const supabase = createClient()
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -37,6 +36,7 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginInput) => {
     setIsLoading(true)
     try {
+      const supabase = createClient()
       const { error } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,

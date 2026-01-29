@@ -1,3 +1,7 @@
+// Force dynamic rendering to prevent build-time prerendering
+// which would fail without Supabase env vars
+export const dynamic = 'force-dynamic'
+
 export default function AuthLayout({
   children,
 }: {
