@@ -35,17 +35,21 @@ export async function GET(request: NextRequest) {
 
     // Calculate spent amount for each budget
     const budgetsWithSpent = await Promise.all(budgets.map(async (budget) => {
-      const { data: transactionsData } = await supabase
-        .from('transactions')
-        .select('amount')
-        .eq('category_id', budget.category_id)
-        .eq('type', 'expense')
-        .eq('status', 'approved')
-        .gte('date', budget.period_start)
-        .lte('date', budget.period_end)
+      let spent = 0
+      
+      if (budget.category_id) {
+        const { data: transactionsData } = await supabase
+          .from('transactions')
+          .select('amount')
+          .eq('category_id', budget.category_id)
+          .eq('type', 'expense')
+          .eq('status', 'approved')
+          .gte('date', budget.period_start)
+          .lte('date', budget.period_end)
 
-      const transactions = (transactionsData || []) as { amount: number }[]
-      const spent = transactions.reduce((sum, t) => sum + Number(t.amount), 0)
+        const transactions = (transactionsData || []) as { amount: number }[]
+        spent = transactions.reduce((sum, t) => sum + Number(t.amount), 0)
+      }
       
       return {
         ...budget,
