@@ -62,9 +62,28 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { exportToExcel, exportToCSV } from '@/lib/utils/export'
+import type { RaffleStatus } from '@/types/database.types'
+
+// Type for raffle with mutable status fields
+interface RaffleData {
+  id: string
+  name: string
+  description: string
+  ticket_price: number
+  total_tickets: number
+  start_date: string
+  end_date: string
+  draw_date: string | null
+  prize_description: string
+  winner_ticket_number: number | null
+  winner_name: string | null
+  winner_phone: string | null
+  status: RaffleStatus
+  created_at: string
+}
 
 // Mock data - replace with useRaffle hook when connected to Supabase
-const mockRaffle = {
+const mockRaffle: RaffleData = {
   id: '1',
   name: 'Rifa Pro-Graduación 2026',
   description: 'Gran rifa para fondos de graduación',
@@ -77,7 +96,7 @@ const mockRaffle = {
   winner_ticket_number: null,
   winner_name: null,
   winner_phone: null,
-  status: 'active' as const,
+  status: 'active',
   created_at: '2026-01-10',
 }
 
@@ -98,7 +117,7 @@ export default function RaffleDetailPage() {
   const raffleId = params.id as string
 
   // State
-  const [raffle, setRaffle] = useState(mockRaffle)
+  const [raffle, setRaffle] = useState<RaffleData>(mockRaffle)
   const [tickets, setTickets] = useState(mockTickets)
   const [searchTerm, setSearchTerm] = useState('')
   const [sellDialogOpen, setSellDialogOpen] = useState(false)
