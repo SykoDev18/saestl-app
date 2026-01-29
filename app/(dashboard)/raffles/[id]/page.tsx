@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { 
   ArrowLeft, 
   Ticket, 
   DollarSign, 
-  Users, 
   Calendar,
   Phone,
   Mail,
@@ -17,8 +16,9 @@ import {
   Download,
   Shuffle,
   CheckCircle,
-  XCircle,
-  AlertCircle
+  AlertCircle,
+  RefreshCw,
+  Loader2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -34,7 +34,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
 import {
   AlertDialog,
@@ -64,11 +63,10 @@ import {
 import { exportToExcel, exportToCSV } from '@/lib/utils/export'
 import type { RaffleStatus } from '@/types/database.types'
 
-// Type for raffle with mutable status fields
 interface RaffleData {
   id: string
   name: string
-  description: string
+  description: string | null
   ticket_price: number
   total_tickets: number
   start_date: string
@@ -82,34 +80,15 @@ interface RaffleData {
   created_at: string
 }
 
-// Mock data - replace with useRaffle hook when connected to Supabase
-const mockRaffle: RaffleData = {
-  id: '1',
-  name: 'Rifa Pro-Graduación 2026',
-  description: 'Gran rifa para fondos de graduación',
-  ticket_price: 50,
-  total_tickets: 200,
-  start_date: '2026-01-15',
-  end_date: '2026-02-28',
-  draw_date: null,
-  prize_description: 'Pantalla Samsung 55" + Bocina Bluetooth',
-  winner_ticket_number: null,
-  winner_name: null,
-  winner_phone: null,
-  status: 'active',
-  created_at: '2026-01-10',
+interface TicketData {
+  id: string
+  ticket_number: number
+  buyer_name: string
+  buyer_phone: string
+  buyer_email: string | null
+  sale_date: string
+  payment_status: 'paid' | 'pending'
 }
-
-const mockTickets = [
-  { id: '1', ticket_number: 1, buyer_name: 'Juan Pérez', buyer_phone: '7711234567', buyer_email: 'juan@email.com', sale_date: '2026-01-15', payment_status: 'paid' },
-  { id: '2', ticket_number: 2, buyer_name: 'María García', buyer_phone: '7719876543', buyer_email: 'maria@email.com', sale_date: '2026-01-16', payment_status: 'paid' },
-  { id: '3', ticket_number: 5, buyer_name: 'Carlos López', buyer_phone: '7715551234', buyer_email: 'carlos@email.com', sale_date: '2026-01-17', payment_status: 'pending' },
-  { id: '4', ticket_number: 10, buyer_name: 'Ana Martínez', buyer_phone: '7718889999', buyer_email: 'ana@email.com', sale_date: '2026-01-18', payment_status: 'paid' },
-  { id: '5', ticket_number: 15, buyer_name: 'Roberto Sánchez', buyer_phone: '7712223333', buyer_email: 'roberto@email.com', sale_date: '2026-01-19', payment_status: 'paid' },
-  { id: '6', ticket_number: 20, buyer_name: 'Laura Torres', buyer_phone: '7714445555', buyer_email: 'laura@email.com', sale_date: '2026-01-20', payment_status: 'paid' },
-  { id: '7', ticket_number: 25, buyer_name: 'Pedro Ramírez', buyer_phone: '7716667777', buyer_email: 'pedro@email.com', sale_date: '2026-01-21', payment_status: 'paid' },
-  { id: '8', ticket_number: 30, buyer_name: 'Sofía Hernández', buyer_phone: '7718889000', buyer_email: 'sofia@email.com', sale_date: '2026-01-22', payment_status: 'paid' },
-]
 
 export default function RaffleDetailPage() {
   const params = useParams()
@@ -117,14 +96,17 @@ export default function RaffleDetailPage() {
   const raffleId = params.id as string
 
   // State
-  const [raffle, setRaffle] = useState<RaffleData>(mockRaffle)
-  const [tickets, setTickets] = useState(mockTickets)
+  const [raffle, setRaffle] = useState<RaffleData | null>(null)
+  const [tickets, setTickets] = useState<TicketData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [sellDialogOpen, setSellDialogOpen] = useState(false)
   const [drawDialogOpen, setDrawDialogOpen] = useState(false)
   const [winnerDialogOpen, setWinnerDialogOpen] = useState(false)
-  const [selectedWinner, setSelectedWinner] = useState<typeof mockTickets[0] | null>(null)
+  const [selectedWinner, setSelectedWinner] = useState<TicketData | null>(null)
   const [sellMode, setSellMode] = useState<'single' | 'multiple'>('single')
+  const [submitting, setSubmitting] = useState(false)
   
   // Form state for selling tickets
   const [ticketForm, setTicketForm] = useState({
@@ -134,16 +116,59 @@ export default function RaffleDetailPage() {
     buyerEmail: '',
   })
 
+  // Fetch raffle data
+  const fetchRaffle = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/raffles?id=${raffleId}`)
+      if (!response.ok) throw new Error('Error al cargar la rifa')
+      const data = await response.json()
+      if (Array.isArray(data)) {
+        const found = data.find((r: RaffleData) => r.id === raffleId)
+        if (found) setRaffle(found)
+        else throw new Error('Rifa no encontrada')
+      } else {
+        setRaffle(data)
+      }
+    } catch (err) {
+      console.error('Error fetching raffle:', err)
+      setError('No se pudo cargar la información de la rifa')
+    }
+  }, [raffleId])
+
+  // Fetch tickets
+  const fetchTickets = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/raffles/${raffleId}/tickets`)
+      if (!response.ok) throw new Error('Error al cargar boletos')
+      const data = await response.json()
+      setTickets(data || [])
+    } catch (err) {
+      console.error('Error fetching tickets:', err)
+      setTickets([])
+    }
+  }, [raffleId])
+
+  // Initial load
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true)
+      await Promise.all([fetchRaffle(), fetchTickets()])
+      setLoading(false)
+    }
+    loadData()
+  }, [fetchRaffle, fetchTickets])
+
   // Calculations
   const soldTickets = tickets.length
-  const availableTickets = raffle.total_tickets - soldTickets
-  const totalRevenue = tickets.filter(t => t.payment_status === 'paid').length * raffle.ticket_price
+  const availableTickets = raffle ? raffle.total_tickets - soldTickets : 0
+  const totalRevenue = tickets.filter(t => t.payment_status === 'paid').length * (raffle?.ticket_price || 0)
   const pendingPayments = tickets.filter(t => t.payment_status === 'pending').length
-  const progressPercent = (soldTickets / raffle.total_tickets) * 100
+  const progressPercent = raffle ? (soldTickets / raffle.total_tickets) * 100 : 0
   const soldNumbers = new Set(tickets.map(t => t.ticket_number))
 
   // Get available numbers
   const getAvailableNumbers = () => {
+    if (!raffle) return []
     const available: number[] = []
     for (let i = 1; i <= raffle.total_tickets; i++) {
       if (!soldNumbers.has(i)) {
@@ -161,43 +186,68 @@ export default function RaffleDetailPage() {
   )
 
   // Handlers
-  const handleSellTicket = () => {
+  const handleSellTicket = async () => {
+    if (!raffle) return
+    setSubmitting(true)
+    
     const numbers = sellMode === 'single' 
       ? [parseInt(ticketForm.ticketNumbers)]
       : ticketForm.ticketNumbers.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n))
 
-    const newTickets = numbers.map((num, idx) => ({
-      id: `new-${Date.now()}-${idx}`,
-      ticket_number: num,
-      buyer_name: ticketForm.buyerName,
-      buyer_phone: ticketForm.buyerPhone,
-      buyer_email: ticketForm.buyerEmail,
-      sale_date: new Date().toISOString().split('T')[0],
-      payment_status: 'paid' as const,
-    }))
+    try {
+      const response = await fetch(`/api/raffles/${raffleId}/tickets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticket_numbers: numbers,
+          buyer_name: ticketForm.buyerName,
+          buyer_phone: ticketForm.buyerPhone,
+          buyer_email: ticketForm.buyerEmail || null,
+          payment_status: 'paid'
+        })
+      })
 
-    setTickets(prev => [...prev, ...newTickets].sort((a, b) => a.ticket_number - b.ticket_number))
-    setSellDialogOpen(false)
-    setTicketForm({ ticketNumbers: '', buyerName: '', buyerPhone: '', buyerEmail: '' })
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.error || 'Error al vender boleto')
+      }
+
+      await fetchTickets()
+      setSellDialogOpen(false)
+      setTicketForm({ ticketNumbers: '', buyerName: '', buyerPhone: '', buyerEmail: '' })
+    } catch (err) {
+      console.error('Error selling ticket:', err)
+      alert(err instanceof Error ? err.message : 'Error al vender boleto')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const handleDraw = () => {
-    if (tickets.length === 0) return
-    
-    const randomIndex = Math.floor(Math.random() * tickets.length)
-    const winner = tickets[randomIndex]
-    setSelectedWinner(winner)
-    setDrawDialogOpen(false)
-    setWinnerDialogOpen(true)
-    
-    setRaffle(prev => ({
-      ...prev,
-      status: 'drawn' as const,
-      winner_ticket_number: winner.ticket_number,
-      winner_name: winner.buyer_name,
-      winner_phone: winner.buyer_phone,
-      draw_date: new Date().toISOString().split('T')[0],
-    }))
+  const handleDraw = async () => {
+    setSubmitting(true)
+    try {
+      const response = await fetch(`/api/raffles/${raffleId}/draw`, { method: 'POST' })
+
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.error || 'Error al realizar sorteo')
+      }
+
+      const result = await response.json()
+      const winnerTicket = tickets.find(t => t.ticket_number === result.winner_ticket_number)
+      if (winnerTicket) {
+        setSelectedWinner(winnerTicket)
+      }
+      
+      setDrawDialogOpen(false)
+      setWinnerDialogOpen(true)
+      await fetchRaffle()
+    } catch (err) {
+      console.error('Error drawing:', err)
+      alert(err instanceof Error ? err.message : 'Error al realizar sorteo')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleExport = (format: 'excel' | 'csv') => {
@@ -205,15 +255,15 @@ export default function RaffleDetailPage() {
       'Número': t.ticket_number,
       'Comprador': t.buyer_name,
       'Teléfono': t.buyer_phone,
-      'Email': t.buyer_email,
+      'Email': t.buyer_email || '',
       'Fecha Venta': t.sale_date,
       'Estado Pago': t.payment_status === 'paid' ? 'Pagado' : 'Pendiente',
     }))
 
     if (format === 'excel') {
-      exportToExcel(exportData, `boletos-${raffle.name}`)
+      exportToExcel(exportData, `boletos-${raffle?.name || 'rifa'}`)
     } else {
-      exportToCSV(exportData, `boletos-${raffle.name}`)
+      exportToCSV(exportData, `boletos-${raffle?.name || 'rifa'}`)
     }
   }
 
@@ -228,6 +278,33 @@ export default function RaffleDetailPage() {
       default:
         return <Badge variant="secondary">{status}</Badge>
     }
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  // Error state
+  if (error || !raffle) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+            <p className="text-lg font-medium text-red-600">{error || 'Rifa no encontrada'}</p>
+            <Button variant="outline" className="mt-4" onClick={() => router.back()}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Volver
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -627,8 +704,9 @@ export default function RaffleDetailPage() {
             </Button>
             <Button 
               onClick={handleSellTicket}
-              disabled={!ticketForm.ticketNumbers || !ticketForm.buyerName || !ticketForm.buyerPhone}
+              disabled={!ticketForm.ticketNumbers || !ticketForm.buyerName || !ticketForm.buyerPhone || submitting}
             >
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Vender Boleto
             </Button>
           </DialogFooter>
@@ -647,7 +725,8 @@ export default function RaffleDetailPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDraw} className="bg-purple-600 hover:bg-purple-700">
+            <AlertDialogAction onClick={handleDraw} className="bg-purple-600 hover:bg-purple-700" disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               <Shuffle className="h-4 w-4 mr-2" />
               Realizar Sorteo
             </AlertDialogAction>

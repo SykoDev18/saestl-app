@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { 
   ArrowLeft, 
@@ -15,12 +15,11 @@ import {
   Plus,
   Search,
   CheckCircle,
-  XCircle,
   AlertCircle,
   UserCheck,
   UserX,
-  Edit,
-  Trash2
+  RefreshCw,
+  Loader2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -64,43 +63,29 @@ import {
 import { exportToExcel, exportToCSV } from '@/lib/utils/export'
 import type { EventStatus } from '@/types/database.types'
 
-// Mock data - replace with useEvent hook when connected to Supabase
-const mockEvent: {
+interface EventData {
   id: string
   name: string
-  description: string
+  description: string | null
   event_type: string
   event_date: string
-  location: string
-  ticket_price: number
-  max_capacity: number
-  registration_deadline: string
+  location: string | null
+  ticket_price: number | null
+  max_capacity: number | null
+  registration_deadline: string | null
   status: EventStatus
   created_at: string
-} = {
-  id: '1',
-  name: 'Torneo de FIFA 2026',
-  description: 'Torneo interescolar de FIFA 26 con premios',
-  event_type: 'torneo',
-  event_date: '2026-02-14',
-  location: 'Auditorio Principal ESTl',
-  ticket_price: 50,
-  max_capacity: 32,
-  registration_deadline: '2026-02-10',
-  status: 'upcoming',
-  created_at: '2026-01-20',
 }
 
-const mockRegistrations = [
-  { id: '1', participant_name: 'Juan Pérez', participant_email: 'juan@email.com', participant_phone: '7711234567', registration_date: '2026-01-20', payment_status: 'paid', attendance_status: 'registered' },
-  { id: '2', participant_name: 'María García', participant_email: 'maria@email.com', participant_phone: '7719876543', registration_date: '2026-01-21', payment_status: 'paid', attendance_status: 'registered' },
-  { id: '3', participant_name: 'Carlos López', participant_email: 'carlos@email.com', participant_phone: '7715551234', registration_date: '2026-01-22', payment_status: 'pending', attendance_status: 'registered' },
-  { id: '4', participant_name: 'Ana Martínez', participant_email: 'ana@email.com', participant_phone: '7718889999', registration_date: '2026-01-23', payment_status: 'paid', attendance_status: 'registered' },
-  { id: '5', participant_name: 'Roberto Sánchez', participant_email: 'roberto@email.com', participant_phone: '7712223333', registration_date: '2026-01-24', payment_status: 'paid', attendance_status: 'registered' },
-  { id: '6', participant_name: 'Laura Torres', participant_email: 'laura@email.com', participant_phone: '7714445555', registration_date: '2026-01-25', payment_status: 'paid', attendance_status: 'registered' },
-  { id: '7', participant_name: 'Pedro Ramírez', participant_email: 'pedro@email.com', participant_phone: '7716667777', registration_date: '2026-01-26', payment_status: 'pending', attendance_status: 'registered' },
-  { id: '8', participant_name: 'Sofía Hernández', participant_email: 'sofia@email.com', participant_phone: '7718889000', registration_date: '2026-01-27', payment_status: 'paid', attendance_status: 'registered' },
-]
+interface RegistrationData {
+  id: string
+  participant_name: string
+  participant_email: string | null
+  participant_phone: string
+  registration_date: string
+  payment_status: 'paid' | 'pending'
+  attendance_status: 'registered' | 'attended' | 'absent'
+}
 
 export default function EventDetailPage() {
   const params = useParams()
@@ -108,11 +93,14 @@ export default function EventDetailPage() {
   const eventId = params.id as string
 
   // State
-  const [event, setEvent] = useState(mockEvent)
-  const [registrations, setRegistrations] = useState(mockRegistrations)
+  const [event, setEvent] = useState<EventData | null>(null)
+  const [registrations, setRegistrations] = useState<RegistrationData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [registerDialogOpen, setRegisterDialogOpen] = useState(false)
   const [attendanceMode, setAttendanceMode] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   
   // Form state
   const [regForm, setRegForm] = useState({
@@ -121,57 +109,137 @@ export default function EventDetailPage() {
     participantPhone: '',
   })
 
+  // Fetch event data
+  const fetchEvent = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/events?id=${eventId}`)
+      if (!response.ok) throw new Error('Error al cargar el evento')
+      const data = await response.json()
+      if (Array.isArray(data)) {
+        const found = data.find((e: EventData) => e.id === eventId)
+        if (found) setEvent(found)
+        else throw new Error('Evento no encontrado')
+      } else {
+        setEvent(data)
+      }
+    } catch (err) {
+      console.error('Error fetching event:', err)
+      setError('No se pudo cargar la información del evento')
+    }
+  }, [eventId])
+
+  // Fetch registrations
+  const fetchRegistrations = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/registrations`)
+      if (!response.ok) throw new Error('Error al cargar registros')
+      const data = await response.json()
+      setRegistrations(data || [])
+    } catch (err) {
+      console.error('Error fetching registrations:', err)
+      setRegistrations([])
+    }
+  }, [eventId])
+
+  // Initial load
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true)
+      await Promise.all([fetchEvent(), fetchRegistrations()])
+      setLoading(false)
+    }
+    loadData()
+  }, [fetchEvent, fetchRegistrations])
+
   // Calculations
   const totalRegistrations = registrations.length
   const paidCount = registrations.filter(r => r.payment_status === 'paid').length
   const pendingPayments = registrations.filter(r => r.payment_status === 'pending').length
   const attendedCount = registrations.filter(r => r.attendance_status === 'attended').length
-  const availableSpots = event.max_capacity ? event.max_capacity - totalRegistrations : 999
-  const totalRevenue = paidCount * (event.ticket_price || 0)
-  const capacityPercent = event.max_capacity ? (totalRegistrations / event.max_capacity) * 100 : 0
+  const availableSpots = event?.max_capacity ? event.max_capacity - totalRegistrations : 999
+  const totalRevenue = paidCount * (event?.ticket_price || 0)
+  const capacityPercent = event?.max_capacity ? (totalRegistrations / event.max_capacity) * 100 : 0
 
   // Filter registrations
   const filteredRegistrations = registrations.filter(reg => 
     reg.participant_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    reg.participant_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (reg.participant_email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
     reg.participant_phone.includes(searchTerm)
   )
 
   // Handlers
-  const handleRegister = () => {
-    const newReg = {
-      id: `new-${Date.now()}`,
-      participant_name: regForm.participantName,
-      participant_email: regForm.participantEmail,
-      participant_phone: regForm.participantPhone,
-      registration_date: new Date().toISOString().split('T')[0],
-      payment_status: 'pending' as const,
-      attendance_status: 'registered' as const,
+  const handleRegister = async () => {
+    if (!event) return
+    setSubmitting(true)
+
+    try {
+      const response = await fetch(`/api/events/${eventId}/registrations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          participant_name: regForm.participantName,
+          participant_email: regForm.participantEmail || null,
+          participant_phone: regForm.participantPhone,
+          payment_status: 'pending'
+        })
+      })
+
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.error || 'Error al registrar participante')
+      }
+
+      await fetchRegistrations()
+      setRegisterDialogOpen(false)
+      setRegForm({ participantName: '', participantEmail: '', participantPhone: '' })
+    } catch (err) {
+      console.error('Error registering:', err)
+      alert(err instanceof Error ? err.message : 'Error al registrar participante')
+    } finally {
+      setSubmitting(false)
     }
-
-    setRegistrations(prev => [newReg, ...prev])
-    setRegisterDialogOpen(false)
-    setRegForm({ participantName: '', participantEmail: '', participantPhone: '' })
   }
 
-  const handlePaymentToggle = (id: string) => {
-    setRegistrations(prev => prev.map(r => 
-      r.id === id 
-        ? { ...r, payment_status: r.payment_status === 'paid' ? 'pending' : 'paid' }
-        : r
-    ))
+  const handlePaymentToggle = async (id: string) => {
+    const reg = registrations.find(r => r.id === id)
+    if (!reg) return
+
+    try {
+      const response = await fetch(`/api/events/${eventId}/registrations`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          payment_status: reg.payment_status === 'paid' ? 'pending' : 'paid'
+        })
+      })
+
+      if (!response.ok) throw new Error('Error al actualizar pago')
+      await fetchRegistrations()
+    } catch (err) {
+      console.error('Error updating payment:', err)
+    }
   }
 
-  const handleAttendanceToggle = (id: string, status: 'attended' | 'absent') => {
-    setRegistrations(prev => prev.map(r => 
-      r.id === id ? { ...r, attendance_status: status } : r
-    ))
+  const handleAttendanceToggle = async (id: string, status: 'attended' | 'absent') => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/registrations`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, attendance_status: status })
+      })
+
+      if (!response.ok) throw new Error('Error al actualizar asistencia')
+      await fetchRegistrations()
+    } catch (err) {
+      console.error('Error updating attendance:', err)
+    }
   }
 
   const handleExport = (format: 'excel' | 'csv') => {
     const exportData = registrations.map(r => ({
       'Nombre': r.participant_name,
-      'Email': r.participant_email,
+      'Email': r.participant_email || '',
       'Teléfono': r.participant_phone,
       'Fecha Registro': r.registration_date,
       'Pago': r.payment_status === 'paid' ? 'Pagado' : 'Pendiente',
@@ -179,9 +247,9 @@ export default function EventDetailPage() {
     }))
 
     if (format === 'excel') {
-      exportToExcel(exportData, `registros-${event.name}`)
+      exportToExcel(exportData, `registros-${event?.name || 'evento'}`)
     } else {
-      exportToCSV(exportData, `registros-${event.name}`)
+      exportToCSV(exportData, `registros-${event?.name || 'evento'}`)
     }
   }
 
@@ -209,6 +277,33 @@ export default function EventDetailPage() {
     }
     const t = types[type] || { label: type, className: 'bg-gray-100 text-gray-800' }
     return <Badge className={t.className}>{t.label}</Badge>
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  // Error state
+  if (error || !event) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+            <p className="text-lg font-medium text-red-600">{error || 'Evento no encontrado'}</p>
+            <Button variant="outline" className="mt-4" onClick={() => router.back()}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Volver
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -533,8 +628,9 @@ export default function EventDetailPage() {
             </Button>
             <Button 
               onClick={handleRegister}
-              disabled={!regForm.participantName || !regForm.participantEmail || !regForm.participantPhone}
+              disabled={!regForm.participantName || !regForm.participantEmail || !regForm.participantPhone || submitting}
             >
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Registrar
             </Button>
           </DialogFooter>
