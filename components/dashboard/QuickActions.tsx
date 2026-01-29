@@ -46,7 +46,7 @@ export function QuickActions() {
             <Link
               key={action.title}
               href={action.href}
-              className={`flex flex-col items-center justify-center p-6 bg-gradient-to-br ${action.gradient} text-white rounded-xl hover:shadow-lg transition-all transform hover:-translate-y-1`}
+              className={`flex flex-col items-center justify-center p-6 bg-linear-to-br ${action.gradient} text-white rounded-xl hover:shadow-lg transition-all transform hover:-translate-y-1`}
             >
               <action.icon className="w-8 h-8 mb-2" />
               <span className="text-sm font-medium text-center">{action.title}</span>

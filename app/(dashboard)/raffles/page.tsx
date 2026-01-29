@@ -243,8 +243,8 @@ export default function RafflesPage() {
             <Card key={raffle.id} className="hover:shadow-lg transition-shadow overflow-hidden">
               <div className={cn(
                 "h-2",
-                raffle.status === 'active' ? "bg-gradient-to-r from-purple-500 to-pink-500" :
-                raffle.status === 'upcoming' ? "bg-gradient-to-r from-blue-500 to-cyan-500" :
+                raffle.status === 'active' ? "bg-linear-to-r from-purple-500 to-pink-500" :
+                raffle.status === 'upcoming' ? "bg-linear-to-r from-blue-500 to-cyan-500" :
                 "bg-gray-200"
               )} />
               <CardHeader className="pb-2">

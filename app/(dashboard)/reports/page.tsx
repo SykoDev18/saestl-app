@@ -288,7 +288,7 @@ export default function ReportsPage() {
       </Card>
 
       {/* Report Header */}
-      <Card className="bg-gradient-to-r from-orange-500 to-amber-500 text-white">
+      <Card className="bg-linear-to-r from-orange-500 to-amber-500 text-white">
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div>

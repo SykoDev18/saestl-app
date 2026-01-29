@@ -94,7 +94,7 @@ export function Sidebar() {
           className="w-12 h-12 object-contain"
         />
         <div>
-          <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 bg-clip-text text-transparent">SAESTI</h1>
+          <h1 className="text-xl font-bold bg-linear-to-r from-purple-600 via-pink-500 to-orange-400 bg-clip-text text-transparent">SAESTI</h1>
           <p className="text-xs text-gray-500">Gestión Financiera</p>
         </div>
       </div>
